@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard</title>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+
+/* ===== PAGE ===== */
+.content{
+  padding:20px;
+}
+
+/* ===== HEADER ===== */
+.page-title{
+  font-size:26px;
+  font-weight:700;
+}
+.page-sub{
+  color:#6b7280;
+  margin-top:4px;
+}
+
+/* ===== STATS ===== */
+.stat-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:20px;
+  margin-top:20px;
+}
+
+.stat-card{
+  background:#fff;
+  padding:20px;
+  border-radius:16px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.05);
+}
+
+.stat-icon{
+  font-size:20px;
+  background:#f3f4f6;
+  padding:10px;
+  border-radius:12px;
+  display:inline-block;
+}
+
+.stat-label{
+  color:#6b7280;
+  margin-top:10px;
+}
+
+.stat-value{
+  font-size:28px;
+  font-weight:700;
+  margin-top:6px;
+}
+
+/* ===== TABLE CARD ===== */
+.table-card{
+  margin-top:25px;
+  background:#fff;
+  padding:20px;
+  border-radius:16px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* ===== TABLE ===== */
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:15px;
+}
+
+th{
+  text-align:left;
+  font-size:12px;
+  color:#6b7280;
+  padding:10px;
+}
+
+td{
+  padding:12px 10px;
+  border-top:1px solid #eee;
+}
+
+/* ===== STATUS BADGES ===== */
+.status-badge{
+  padding:6px 12px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:600;
+}
+
+.pending{ background:#fef3c7; color:#b45309; }
+.ready{ background:#d1fae5; color:#065f46; }
+.assigned{ background:#ede9fe; color:#5b21b6; }
+.dispatched{ background:#dbeafe; color:#1e40af; }
+.cancelled{ background:#fee2e2; color:#991b1b; }
+
+/* ===== BUTTONS ===== */
+.btn-primary{
+  background:#6c63ff;
+  color:white;
+  padding:8px 14px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+/* ===== FILTER PILL ===== */
+.filter-pill{
+  padding:8px 16px;
+  border-radius:20px;
+  border:1px solid #6c63ff;
+  background:#eef2ff;
+  color:#4f46e5;
+  font-weight:600;
+  cursor:pointer;
+  transition:0.3s;
+}
+
+.filter-pill:hover{
+  background:#e0e7ff;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="sidebar-slot"></div>
+
+<div class="main">
+<div id="topbar-slot"></div>
+
+<div class="content">
+
+<!-- HEADER -->
+
+<div>
+  <div class="page-title">📊 Nagpur Station Dashboard</div>
+  <div class="page-sub">Real-time logistics tracking</div>
+</div>
+
+<!-- STATS -->
+
+<div class="stat-grid">
+
+<div class="stat-card">
+  <div class="stat-icon">🖥️</div>
+  <div class="stat-label">Orders Arrived</div>
+  <div class="stat-value" id="stat-arrived">--</div>
+</div>
+
+<div class="stat-card">
+  <div class="stat-icon">📦</div>
+  <div class="stat-label">Orders Waiting</div>
+  <div class="stat-value" id="stat-waiting">--</div>
+</div>
+
+<div class="stat-card">
+  <div class="stat-icon">⚙️</div>
+  <div class="stat-label">Delivery Staff</div>
+  <div class="stat-value" id="stat-staff">--</div>
+</div>
+
+<div class="stat-card">
+  <div class="stat-icon">❌</div>
+  <div class="stat-label">Cancelled</div>
+  <div class="stat-value" id="stat-cancelled">--</div>
+</div>
+
+</div>
+
+<!-- TABLE -->
+
+<div class="table-card">
+
+<div style="display:flex; justify-content:space-between; align-items:center;">
+  <h3>Orders Table</h3>
+
+  <div>
+    <!-- 🔥 NEW FILTER -->
+    <button id="filter-btn" class="filter-pill">⚡ ALL</button>
+
+<button class="btn-primary" onclick="exportCSV()">⬇ Export</button>
+
+  </div>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>ORDER ID</th>
+<th>TRAIN</th>
+<th>COACH</th>
+<th>SEAT</th>
+<th>RESTAURANT</th>
+<th>STATUS</th>
+</tr>
+</thead>
+
+<tbody id="dashboard-table-body">
+<tr><td colspan="6">Loading...</td></tr>
+</tbody>
+</table>
+
+</div>
+
+</div>
+</div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
+
+<script>
+renderShell('dashboard');
+
+const token = localStorage.getItem("token");
+
+let allOrders = [];
+
+/* ================= LOAD DATA ================= */
+async function loadDashboard(){
+
+  try{
+    const res = await fetch("/api/dashboard", {
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    });
+
+    const data = await res.json();
+
+    document.getElementById("stat-arrived").innerText = data.total_orders;
+    document.getElementById("stat-waiting").innerText = data.waiting_orders;
+    document.getElementById("stat-cancelled").innerText = data.cancelled_orders;
+    document.getElementById("stat-staff").innerText = data.delivery_staff;
+
+    allOrders = data.recent_orders;
+
+    renderTable(allOrders);
+
+  }catch(err){
+    console.error(err);
+  }
+}
+function exportCSV() {
+
+  const token = localStorage.getItem("token");
+
+  fetch("/api/dashboard/export", {
+    headers: {
+      "Authorization": "Bearer " + token
+    }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error("Export failed");
+    return res.blob();
+  })
+  .then(blob => {
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = "dashboard_orders.csv";
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Export failed ❌");
+  });
+}
+/* ================= RENDER TABLE ================= */
+function renderTable(orders){
+
+  const table = document.getElementById("dashboard-table-body");
+
+  if(!orders.length){
+    table.innerHTML = `<tr><td colspan="6">No orders</td></tr>`;
+    return;
+  }
+
+  table.innerHTML = orders.map(o => `
+    <tr>
+      <td>#${o.order_ref}</td>
+      <td>${o.train_number} (${o.train_name})</td>
+      <td>${o.coach}</td>
+      <td>${o.seat}</td>
+      <td>${o.restaurant}</td>
+      <td>
+        <span class="status-badge ${o.status}">
+          ${o.status.toUpperCase()}
+        </span>
+      </td>
+    </tr>
+  `).join("");
+}
+
+/* ================= FILTER LOGIC ================= */
+
+const filters = ["all","pending","ready","assigned","dispatched","cancelled"];
+let index = 0;
+
+document.getElementById("filter-btn").onclick = () => {
+
+  index = (index + 1) % filters.length;
+
+  const filter = filters[index];
+
+  document.getElementById("filter-btn").innerText =
+    filter === "all" ? "⚡ ALL" : "⚡ " + filter.toUpperCase();
+
+  if(filter === "all"){
+    renderTable(allOrders);
+  } else {
+    renderTable(allOrders.filter(o => o.status === filter));
+  }
+
+};
+
+/* ================= INIT ================= */
+loadDashboard();
+
+</script>
+
+</body>
+</html>

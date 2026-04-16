@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cancelled Orders</title>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+.table-card {
+  background:#fff;
+  border-radius:16px;
+  padding:22px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.06);
+}
+
+.table-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:18px;
+}
+
+.table-title {
+  font-size:18px;
+  font-weight:600;
+}
+
+.btn-primary {
+  background:#6366f1;
+  color:#fff;
+  padding:8px 14px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:13px;
+}
+
+.btn-primary:hover {
+  opacity:0.9;
+}
+
+table {
+  width:100%;
+  border-collapse:collapse;
+}
+
+th {
+  text-align:left;
+  font-size:12px;
+  color:#6b7280;
+  padding:10px;
+  letter-spacing:0.5px;
+}
+
+td {
+  padding:14px 10px;
+  border-top:1px solid #eee;
+  font-size:14px;
+}
+
+.order-id {
+  color:#6366f1;
+  font-weight:600;
+}
+
+.badge-cancelled {
+  background:#fee2e2;
+  color:#991b1b;
+  padding:5px 12px;
+  border-radius:20px;
+  font-size:11px;
+  font-weight:600;
+}
+
+.empty {
+  text-align:center;
+  padding:30px;
+  color:#888;
+}
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-slot"></div>
+
+<div class="main">
+<div id="topbar-slot"></div>
+
+<div class="content">
+
+<div class="page-header">
+  <div class="page-title">❌ Cancelled Orders</div>
+  <div class="page-sub">Review and process cancelled order refunds</div>
+</div>
+
+<div class="table-card">
+
+  <div class="table-header">
+    <div class="table-title">Cancelled Orders Log</div>
+  <button class="btn-primary" onclick="exportCancelled()">⬇ Export Report</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ORDER ID</th>
+        <th>TRAIN</th>
+        <th>RESTAURANT</th>
+        <th>REASON</th>
+        <th>TIME</th>
+        <th>STATUS</th>
+      </tr>
+    </thead>
+
+    <tbody id="table-body"></tbody>
+  </table>
+
+</div>
+</div>
+</div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
+
+<script>
+renderShell('cancelled');
+
+const token = localStorage.getItem("token");
+
+async function loadCancelled() {
+  try {
+    const res = await fetch("/api/orders/cancelled", {
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    });
+
+    const data = await res.json();
+    const table = document.getElementById("table-body");
+
+    if (!data.length) {
+      table.innerHTML = `
+        <tr>
+          <td colspan="6" class="empty">
+            🚫 No cancelled orders found
+          </td>
+        </tr>`;
+      return;
+    }
+
+    table.innerHTML = data.map(o => {
+      return `
+      <tr>
+        <td class="order-id">#${o.order_ref}</td>
+        <td>${o.train_number} (${o.train_name})</td>
+        <td>${o.restaurant}</td>
+        <td>${o.reason || "N/A"}</td>
+        <td>${formatTime(o.drop_time)}</td>
+        <td><span class="badge-cancelled">CANCELLED</span></td>
+      </tr>`;
+    }).join("");
+
+  } catch (err) {
+    console.error("Error loading cancelled orders:", err);
+  }
+}
+function exportCancelled() {
+
+  const token = localStorage.getItem("token");
+
+  fetch("/api/orders/cancelled/export", {
+    headers: {
+      "Authorization": "Bearer " + token
+    }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error("Export failed");
+    return res.blob();
+  })
+  .then(blob => {
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = "cancelled_orders.csv";
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Export failed ❌");
+  });
+}
+
+function formatTime(t) {
+  if (!t) return "-";
+  const date = new Date("1970-01-01T" + t);
+  return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+}
+
+loadCancelled();
+</script>
+
+</body>
+</html>

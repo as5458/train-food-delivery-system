@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Right Time – Create Account</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- ✅ FIXED CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body class="auth-page">
+
+  <div class="login-card">
+
+    <div class="login-left">
+      <div>
+        <!-- ✅ FIXED LOGO -->
+        <div class="login-brand">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="Right Time Logo" style="height: 80px; width: 160px; display: block;">
+        </div>
+
+        <div class="login-brand-sub">
+          Join the platform managing station pickups and food delivery hubs across India.
+        </div>
+      </div>
+      <div class="login-image">🚉</div>
+    </div>
+
+    <div class="login-right">
+      <div class="login-title">Create Account</div>
+      <div class="login-subtitle">Set up your station hub account</div>
+
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <div class="input-wrap">
+          <input class="form-input" type="text" placeholder="Rakesh Kumar" id="name">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <div class="input-wrap">
+          <input class="form-input" type="email" placeholder="name@company.com" id="email">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="input-wrap">
+          <input class="form-input" type="password" placeholder="Min. 8 characters" id="password">
+        </div>
+      </div>
+
+      <button class="login-btn" id="signup-btn">Create Account</button>
+
+      <div class="login-footer">
+        Already have an account?
+        <!-- ✅ FIXED ROUTE -->
+        <a href="/">Login</a>
+      </div>
+    </div>
+
+  </div>
+<script>
+document.getElementById('signup-btn').addEventListener('click', async () => {
+
+  const name = document.querySelector('input[type="text"]').value;
+  const email = document.querySelector('input[type="email"]').value;
+  const password = document.querySelector('input[type="password"]').value;
+
+  // ✅ TEMP DEFAULT PHONE (no UI change)
+  const phone = "9999999999";
+
+  const res = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name,
+      email,
+      password,
+      phone
+    })
+  });
+
+  const data = await res.json();
+
+  if (res.ok) {
+    localStorage.setItem('token', data.token);
+
+    // ✅ redirect to dashboard
+    window.location.href = '/dashboard';
+  } else {
+    alert(data.error);
+  }
+
+});
+</script>
+
+</body>
+</html>

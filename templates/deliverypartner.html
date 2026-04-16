@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Delivery Partner</title>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+.content{ padding:20px; }
+
+.page-title{ font-size:26px; font-weight:700; }
+.page-sub{ color:#6b7280; }
+
+.stat-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:20px;
+  margin-top:20px;
+}
+
+.stat-card{
+  background:#fff;
+  padding:20px;
+  border-radius:16px;
+}
+
+.stat-value{ font-size:28px; font-weight:700; }
+
+.table-card{
+  margin-top:25px;
+  background:#fff;
+  padding:20px;
+  border-radius:16px;
+}
+
+table{ width:100%; border-collapse:collapse; }
+
+th, td{ padding:10px; border-top:1px solid #eee; }
+
+.badge{
+  padding:6px 12px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:600;
+}
+
+.active{ background:#d1fae5; }
+.busy{ background:#fef3c7; }
+.offline{ background:#fee2e2; }
+
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-slot"></div>
+
+<div class="main">
+<div id="topbar-slot"></div>
+
+<div class="content">
+
+<div>
+  <div class="page-title">🚚 Delivery Partner</div>
+  <div class="page-sub">Manage delivery partners</div>
+</div>
+
+<!-- STATS -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div>Active</div>
+    <div class="stat-value">{{ active }}</div>
+  </div>
+
+  <div class="stat-card">
+    <div>Busy</div>
+    <div class="stat-value">{{ busy }}</div>
+  </div>
+
+  <div class="stat-card">
+    <div>Assigned</div>
+    <div class="stat-value">{{ assigned }}</div>
+  </div>
+
+  <div class="stat-card">
+    <div>Delivered</div>
+    <div class="stat-value">{{ delivered }}</div>
+  </div>
+</div>
+
+<!-- TABLE -->
+<div class="table-card">
+  <h3>Delivery Partner Log</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Deliveries</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for p in partners %}
+      <tr>
+        <td>#DP{{ p.id }}</td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.phone }}</td>
+        <td>{{ p.total_deliveries }}</td>
+        <td>
+          <span class="badge {{ p.status.lower() }}">
+            {{ p.status }}
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+</div>
+</div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
+
+<script>
+renderShell('deliverypartner');
+</script>
+
+</body>
+</html>

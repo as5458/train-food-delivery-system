@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Right Time – Station Counter</title>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+
+/* ===== HEADER ===== */
+.page-sub {
+  color: #7c8db5;
+  margin-bottom: 20px;
+}
+
+/* ===== STATS ===== */
+.stats-grid {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.stat-card {
+  flex: 1;
+  background: #f8f9ff;
+  padding: 20px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.stat-icon { font-size: 26px; }
+
+.stat-title {
+  font-size: 12px;
+  color: gray;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: bold;
+}
+
+/* ===== TABLE ===== */
+.table-card {
+  background: white;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.order-id {
+  color:#6c63ff;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.coach-badge {
+  background:#ede9fe;
+  color:#6d28d9;
+  padding:5px 12px;
+  border-radius:14px;
+  font-size:12px;
+  font-weight:600;
+}
+
+.badge {
+  padding:6px 14px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:600;
+}
+
+.badge.ready { background:#d4f5e9; color:#0f9d58; }
+.badge.assigned { background:#efe7ff; color:#7c3aed; }
+.badge.delivered { background:#dbeafe; color:#2563eb; }
+.badge.cancelled { background:#ffe4e6; color:#ef4444; }
+
+.btn-verify {
+  background:#10b981;
+  color:white;
+  border:none;
+  padding:6px 14px;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:13px;
+  transition: 0.2s;
+}
+
+.btn-verify:hover {
+  background:#059669;
+  transform: scale(1.05);
+}
+
+.btn-verify:disabled {
+  background:#9ca3af;
+  cursor:not-allowed;
+}
+
+td { padding: 12px; }
+tr { border-bottom: 1px solid #eee; }
+
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-slot"></div>
+
+<div class="main">
+<div id="topbar-slot"></div>
+
+<div class="content">
+
+<h2>🚉 Station Food Drop Counter</h2>
+<p class="page-sub">
+Manage incoming deliveries at the station counter efficiently.
+</p>
+
+<!-- 🔥 STATS -->
+<div class="stats-grid">
+
+  <div class="stat-card">
+    <div class="stat-icon">🖥️</div>
+    <div>
+      <div class="stat-title">AWAITING VERIFICATION</div>
+      <div class="stat-value" id="count-pending">0</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon">📦</div>
+    <div>
+      <div class="stat-title">IN QUEUE</div>
+      <div class="stat-value" id="count-queue">0</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon">✅</div>
+    <div>
+      <div class="stat-title">DISPATCHED TODAY</div>
+      <div class="stat-value" id="count-dispatched">0</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 🔥 TABLE -->
+<div class="table-card">
+
+<table>
+<thead>
+<tr>
+<th>ORDER ID</th>
+<th>RESTAURANT</th>
+<th>TRAIN</th>
+<th>COACH & SEAT</th>
+<th>DROP TIME</th>
+<th>ACTION</th>
+</tr>
+</thead>
+
+<tbody id="station-table-body"></tbody>
+
+</table>
+
+</div>
+
+</div>
+</div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
+
+<script>
+renderShell('stations');
+
+const token = localStorage.getItem("token");
+
+if (!token) {
+  window.location.href = "/";
+}
+
+let globalData = [];
+
+// 🚀 LOAD DATA
+async function loadStationData() {
+  const res = await fetch("/api/stations/", {
+    headers: { "Authorization": "Bearer " + token }
+  });
+
+  globalData = await res.json();
+
+  renderTable();
+  updateStats();
+}
+
+// 🎯 RENDER TABLE
+function renderTable() {
+  const tbody = document.getElementById("station-table-body");
+
+  tbody.innerHTML = globalData.map(o => `
+    <tr>
+      <td class="order-id">#${o.order_ref}</td>
+
+      <td>
+        <div style="font-weight:600;">🍽️ ${o.restaurant_name}</div>
+        <div style="font-size:12px;color:#888;">
+          ${o.outlet_name || 'Station Outlet'}
+        </div>
+      </td>
+
+      <td>
+        🚆 ${o.train_number}
+        <span style="font-size:12px;color:#888;">
+          (${o.train_name || ''})
+        </span>
+      </td>
+
+      <td>
+        <span class="coach-badge">${o.coach} / ${o.seat}</span>
+      </td>
+
+      <td>⏱️ ${formatTime(o.drop_time)}</td>
+
+      <td>${getStatus(o)}</td>
+    </tr>
+  `).join("");
+}
+
+// 🎨 STATUS
+function getStatus(o) {
+  if (o.status === "pending") {
+    return `<button class="btn-verify" onclick="verifyOrder('${o.order_ref}', this)">✔ Verify</button>`;
+  }
+  if (o.status === "ready") return `<span class="badge ready">READY</span>`;
+  if (o.status === "assigned") return `<span class="badge assigned">ASSIGNED</span>`;
+  if (o.status === "dispatched") return `<span class="badge delivered">DISPATCHED</span>`;
+  if (o.status === "cancelled") return `<span class="badge cancelled">CANCELLED</span>`;
+}
+
+// 🔥 VERIFY BUTTON (REAL-TIME UPDATE)
+async function verifyOrder(order_ref, btn) {
+  try {
+    btn.innerText = "⏳ Verifying...";
+    btn.disabled = true;
+
+    await fetch(`/api/orders/${order_ref}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      },
+      body: JSON.stringify({ status: "ready" })
+    });
+
+    // 🔥 UPDATE LOCAL DATA (NO RELOAD)
+    globalData = globalData.map(o => {
+      if (o.order_ref === order_ref) {
+        o.status = "ready";
+      }
+      return o;
+    });
+
+    renderTable();
+    updateStats();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error verifying order");
+  }
+}
+
+// 📊 UPDATE STATS
+function updateStats() {
+  let pending = 0;
+  let queue = 0;
+  let dispatched = 0;
+
+  globalData.forEach(o => {
+    if (o.status === "pending") pending++;
+    else if (o.status === "ready" || o.status === "assigned") queue++;
+    else if (o.status === "dispatched") dispatched++;
+  });
+
+  document.getElementById("count-pending").innerText = pending;
+  document.getElementById("count-queue").innerText = queue;
+  document.getElementById("count-dispatched").innerText = dispatched;
+}
+
+// ⏱️ TIME FORMAT
+function formatTime(timeStr) {
+  if (!timeStr) return "-";
+
+  const [h, m] = timeStr.split(":");
+  const hour = parseInt(h);
+
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hr = hour % 12 || 12;
+
+  return `${hr}:${m} ${ampm}`;
+}
+
+// START
+loadStationData();
+</script>
+
+</body>
+</html>

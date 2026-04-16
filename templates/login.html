@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Right Time – Login</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body class="auth-page">
+
+  <div class="login-card">
+
+    <div class="login-left">
+      <div>
+        <div class="login-brand">
+          <img src="{{ url_for('static', filename='logo.png') }}" style="height:80px;">
+        </div>
+        <div class="login-brand-sub">
+          Managing station pickups and food delivery hubs with real-time tracking.
+        </div>
+      </div>
+      <div class="login-image">🍱</div>
+    </div>
+
+    <div class="login-right">
+      <div class="login-title">Welcome Back</div>
+      <div class="login-subtitle">Login to manage your hub operations</div>
+
+      <div class="form-group">
+        <input id="email" class="form-input" type="email" placeholder="Email">
+      </div>
+
+      <div class="form-group">
+        <input id="password" class="form-input" type="password" placeholder="Password">
+      </div>
+
+      <button class="login-btn" id="login-btn">Login</button>
+
+      <p id="error" style="color:red;"></p>
+
+      <div class="login-footer">
+        Don't have an account?
+        <a href="/signup">Create Account</a>
+      </div>
+    </div>
+
+  </div>
+
+ <script>
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ email, password })
+  });
+
+  const data = await res.json();
+
+  if (res.ok) {
+    localStorage.setItem('token', data.token);
+    window.location.href = '/dashboard';  // ✅ LINKED
+  } else {
+    document.getElementById('error').innerText = data.error;
+  }
+});
+</script>
+
+</body>
+</html>

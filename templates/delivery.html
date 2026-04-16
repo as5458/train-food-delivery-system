@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Right Time – Delivery Assignment</title>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+.assign-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.assign-card {
+  background: white;
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.order-num {
+  font-weight: 600;
+  color: #6c63ff;
+}
+
+.order-route {
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.order-detail {
+  font-size: 12px;
+  color: #777;
+}
+
+.badge-ready {
+  background: #d4f5e9;
+  color: #0f9d58;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.form-select {
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-slot"></div>
+
+<div class="main">
+<div id="topbar-slot"></div>
+
+<div class="content">
+
+<div class="page-header">
+  <div class="page-title">🚴 Delivery Assignment</div>
+  <div class="page-sub">Assign delivery personnel to ready orders</div>
+</div>
+
+<div class="assign-grid" id="delivery-grid"></div>
+
+</div>
+</div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
+
+<script>
+renderShell('delivery');
+
+const token = localStorage.getItem("token");
+if (!token) window.location.href = "/";
+
+let orders = [];
+
+// 🚀 LOAD FROM BACKEND
+async function loadOrders() {
+  const res = await fetch("/api/delivery/ready-orders", {
+    headers: { "Authorization": "Bearer " + token }
+  });
+
+  orders = await res.json();
+  renderGrid();
+}
+
+// 🎯 RENDER UI
+function renderGrid() {
+  const grid = document.getElementById("delivery-grid");
+
+  if (!orders.length) {
+    grid.innerHTML = `<p>No ready orders</p>`;
+    return;
+  }
+
+  grid.innerHTML = orders.map(o => `
+    <div class="assign-card">
+
+      <div>
+        <div class="order-num">#${o.order_ref}</div>
+
+        <div class="order-route">
+          🚆 ${o.train_number} (${o.train_name})
+        </div>
+
+        <div class="order-detail">
+          Coach ${o.coach} · Seat ${o.seat} · ⏱ ${formatTime(o.drop_time)}
+        </div>
+
+        <div class="order-detail">${o.restaurant}</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:end">
+        <span class="badge-ready">READY</span>
+
+        <select class="form-select" onchange="assign(${o.id}, this.value)">
+          <option value="">Assign to...</option>
+          <option value="1">Arjun</option>
+          <option value="2">Meena</option>
+          <option value="3">Vijay</option>
+        </select>
+      </div>
+
+    </div>
+  `).join("");
+}
+
+// 🔥 ASSIGN (CONNECT TO BACKEND)
+async function assign(order_id, staff_id) {
+  if (!staff_id) return;
+
+  await fetch("/api/delivery/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ order_id, staff_id })
+  });
+
+  // 🔥 REMOVE FROM UI AFTER ASSIGN
+  orders = orders.filter(o => o.id !== order_id);
+  renderGrid();
+}
+
+// ⏱️ TIME FORMAT
+function formatTime(timeStr) {
+  if (!timeStr) return "-";
+
+  const [h, m] = timeStr.split(":");
+  const hour = parseInt(h);
+
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hr = hour % 12 || 12;
+
+  return `${hr}:${m} ${ampm}`;
+}
+
+loadOrders();
+</script>
+
+</body>
+</html>

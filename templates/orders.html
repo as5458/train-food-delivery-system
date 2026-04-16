@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Right Time – Orders</title>
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+.status { padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600; }
+.pending { background:#fff4d6; color:#f59e0b; }
+.ready { background:#d4f5e9; color:#0f9d58; }
+.assigned { background:#efe7ff; color:#7c3aed; }
+.dispatched { background:#dbeafe; color:#2563eb; }
+.cancelled { background:#ffe4e6; color:#ef4444; }
+
+.order-id { color:#6c63ff; font-weight:600; }
+.btn-outline.active { border:1px solid #6c63ff; color:#6c63ff; }
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-slot"></div>
+
+<div class="main">
+<div id="topbar-slot"></div>
+
+<div class="content">
+
+<div class="page-header">
+  <div class="page-title">📦 Orders Management</div>
+  <div class="page-sub">Track and manage all station orders</div>
+</div>
+
+<div class="table-card">
+
+<div class="table-header">
+  <div class="table-title">All Orders</div>
+
+  <div class="table-actions">
+    <input id="search" class="search-input" placeholder="Search orders...">
+    <button class="btn btn-outline" id="filter-btn">⚡ ALL</button>
+    <button class="btn btn-primary" onclick="exportOrders()">⬇ Export</button>
+  </div>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Order ID</th>
+<th>Train</th>
+<th>Coach</th>
+<th>Seat</th>
+<th>Restaurant</th>
+<th>Status</th>
+</tr>
+</thead>
+
+<tbody id="table-body">
+<tr><td colspan="6">Loading...</td></tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
+
+<script>
+renderShell('orders');
+
+const token = localStorage.getItem('token');
+if (!token) window.location.href = "/";
+
+let ordersData = [];
+let currentFilter = "all";
+
+const STATUS = ['pending','ready','assigned','dispatched','cancelled'];
+
+/* RENDER */
+function render(list) {
+  const table = document.getElementById('table-body');
+
+  if (!list.length) {
+    table.innerHTML = `<tr><td colspan="6">No orders found 🚀</td></tr>`;
+    return;
+  }
+
+  table.innerHTML = list.map(o => `
+    <tr>
+      <td class="order-id">#${o.order_ref}</td>
+      <td>${o.train_number} (${o.train_name})</td>
+      <td>${o.coach}</td>
+      <td>${o.seat}</td>
+      <td>🍽️ ${o.restaurant_name}</td>
+      <td><span class="status ${o.status}">${o.status.toUpperCase()}</span></td>
+    </tr>
+  `).join('');
+}
+
+/* LOAD */
+async function loadOrders() {
+  const res = await fetch('/api/order2/', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+
+  const data = await res.json();
+  ordersData = data.orders;
+  render(ordersData);
+}
+
+/* SEARCH */
+document.getElementById('search').addEventListener('input', function () {
+  const q = this.value.toLowerCase();
+
+  const filtered = ordersData.filter(o =>
+    o.order_ref.toLowerCase().includes(q) ||
+    o.train_name.toLowerCase().includes(q) ||
+    (o.train_number + '').includes(q) ||
+    o.restaurant_name.toLowerCase().includes(q)
+  );
+
+  render(filtered);
+});
+
+/* FILTER */
+document.getElementById('filter-btn').onclick = () => {
+
+  let index = STATUS.indexOf(currentFilter);
+  index = (index + 1) % (STATUS.length + 1);
+
+  if (index === STATUS.length) {
+    currentFilter = "all";
+    render(ordersData);
+  } else {
+    currentFilter = STATUS[index];
+    render(ordersData.filter(o => o.status === currentFilter));
+  }
+
+  const btn = document.getElementById('filter-btn');
+  btn.innerText = "⚡ " + currentFilter.toUpperCase();
+  btn.classList.toggle("active", currentFilter !== "all");
+};
+
+/* EXPORT */
+function exportOrders() {
+
+  fetch("/api/order2/export", {
+    headers: { "Authorization": "Bearer " + token }
+  })
+  .then(res => res.blob())
+  .then(blob => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = "orders.csv";
+    a.click();
+  });
+}
+
+loadOrders();
+</script>
+
+</body>
+</html>

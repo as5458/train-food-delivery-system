@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Analytics</title>
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+
+/* ================== LAYOUT ================== */
+.analytics-grid{
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:22px;
+  margin-top:22px;
+}
+
+/* ================== CARD ================== */
+.chart-card{
+  background:#fff;
+  border-radius:18px;
+  padding:24px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.05);
+}
+
+.chart-title{
+  font-weight:600;
+  margin-bottom:16px;
+  font-size:15px;
+  color:#2b2b2b;
+}
+
+/* ================== BAR CHART ================== */
+.bar-chart{
+  display:flex;
+  align-items:flex-end;
+  gap:10px;
+  height:150px;
+}
+
+.bar-wrap{
+  flex:1;
+  text-align:center;
+  min-width:0;
+}
+
+.bar{
+  width:100%;
+  border-radius:8px 8px 0 0;
+  background:linear-gradient(180deg,#7c73ff,#5b54e8);
+  transition:height 0.4s ease;
+}
+
+.bar:hover{
+  opacity:0.8;
+  cursor:pointer;
+}
+
+.bar-label{
+  margin-top:6px;
+  font-size:11px;
+  color:#9ca3af;
+}
+
+/* ================== DONUT ================== */
+.donut-wrap{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:20px;
+}
+
+.donut{
+  position:relative;
+  flex-shrink:0;
+}
+
+.donut-center{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  text-align:center;
+  pointer-events:none;
+}
+
+.donut-pct{
+  font-size:20px;
+  font-weight:700;
+  line-height:1.2;
+}
+
+.donut-sub{
+  font-size:11px;
+  color:#9ca3af;
+}
+
+/* ================== LEGEND ================== */
+.legend{
+  width:100%;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px 16px;
+}
+
+.legend-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-size:12px;
+  padding:4px 0;
+  border-bottom:1px solid #f3f4f6;
+}
+
+.legend-left{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:#374151;
+}
+
+.dot{
+  width:9px;
+  height:9px;
+  border-radius:50%;
+  flex-shrink:0;
+}
+
+.legend-val{
+  font-weight:700;
+  color:#111;
+  font-size:12px;
+}
+
+.legend-pct{
+  color:#aaa;
+  font-size:10px;
+  margin-left:2px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-slot"></div>
+
+<div class="main">
+<div id="topbar-slot"></div>
+
+<div class="content">
+
+<div class="page-header">
+  <div class="page-title">📊 Analytics</div>
+  <div class="page-sub">Platform performance insights</div>
+</div>
+
+<!-- STATS -->
+<div class="stat-grid" id="stats"></div>
+
+<!-- CHARTS -->
+<div class="analytics-grid">
+
+<!-- BAR -->
+<div class="chart-card">
+  <div class="chart-title">📈 Orders Per Hour</div>
+  <div class="bar-chart" id="bar-chart"></div>
+</div>
+
+<!-- DONUT -->
+<div class="chart-card">
+  <div class="chart-title">📊 Order Status Mix</div>
+
+  <div class="donut-wrap">
+
+    <div class="donut">
+      <svg id="donut-svg" width="140" height="140" viewBox="0 0 160 160">
+        <!-- segments injected by JS -->
+      </svg>
+      <div class="donut-center">
+        <div class="donut-pct" id="pct">0</div>
+        <div class="donut-sub">total</div>
+      </div>
+    </div>
+
+    <div class="legend" id="legend"></div>
+
+  </div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
+
+<script>
+renderShell('analytics');
+
+const API = "/api/analytics";
+
+async function load(){
+  const token = localStorage.getItem("token");
+
+  const summary = await fetch(API+"/summary",{
+    headers:{Authorization:"Bearer "+token}
+  }).then(r=>r.json());
+
+  const hourly = await fetch(API+"/hourly",{
+    headers:{Authorization:"Bearer "+token}
+  }).then(r=>r.json());
+
+  renderStats(summary);
+  renderBar(hourly);
+  renderDonut(summary);
+}
+
+/* ================= STATS ================= */
+function renderStats(d){
+  document.getElementById("stats").innerHTML = `
+  
+  <div class="stat-card">
+    <div class="stat-icon icon-blue">📦</div>
+    <div class="stat-label">Total Orders Today</div>
+    <div class="stat-value">${d.total_orders_today}</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon icon-green">✅</div>
+    <div class="stat-label">Delivered</div>
+    <div class="stat-value">${d.delivered}</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon icon-orange">⏳</div>
+    <div class="stat-label">Pending</div>
+    <div class="stat-value">${d.pending}</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon icon-purple">⭐</div>
+    <div class="stat-label">Avg Rating</div>
+    <div class="stat-value">4.7</div>
+  </div>
+  `;
+}
+
+/* ================= BAR ================= */
+function renderBar(data){
+
+  const map = {};
+  data.forEach(r => map[String(r.hour)] = r.order_count);
+
+  // Only show hours that exist in the data, trimming empty trailing hours
+  const allHours = ["6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22"];
+  let activeHours = allHours.filter(h => map[h]);
+  
+  // If no data at all, show default range
+  if(activeHours.length === 0) activeHours = ["8","9","10","11","12","13","14"];
+
+  // Pad 1 hour on each side for visual breathing room
+  const firstIdx = Math.max(0, allHours.indexOf(activeHours[0]) - 1);
+  const lastIdx  = Math.min(allHours.length - 1, allHours.indexOf(activeHours[activeHours.length-1]) + 1);
+  const hours = allHours.slice(firstIdx, lastIdx + 1);
+  const vals  = hours.map(h => map[h] || 0);
+  const max   = Math.max(...vals, 1);
+
+  function hourLabel(h){
+    const n = parseInt(h);
+    if(n < 12) return n + "AM";
+    if(n === 12) return "12PM";
+    return (n - 12) + "PM";
+  }
+
+  document.getElementById("bar-chart").innerHTML =
+    vals.map((v,i) => {
+      let height = (v / max) * 140;
+      if(v > 0 && height < 14) height = 14;
+      const opacity = v === 0 ? "0.15" : "1";
+      return `
+      <div class="bar-wrap">
+        <div class="bar" style="height:${height}px;opacity:${opacity}" title="${v} orders at ${hourLabel(hours[i])}"></div>
+        <div class="bar-label">${hourLabel(hours[i])}</div>
+      </div>`;
+    }).join("");
+}
+
+/* ================= DONUT ================= */
+function renderDonut(d){
+
+  const segments = [
+    { label:"Pending",    key:"pending",    color:"#f59e0b" },
+    { label:"Ready",      key:"ready",      color:"#10b981" },
+    { label:"Assigned",   key:"assigned",   color:"#3b82f6" },
+    { label:"Dispatched", key:"dispatched", color:"#6c63ff" },
+    { label:"Delivered",  key:"delivered",  color:"#22c55e" },
+    { label:"Cancelled",  key:"cancelled",  color:"#ef4444" },
+  ];
+
+  const vals = segments.map(s => d[s.key] || 0);
+  const total = vals.reduce((a,b) => a+b, 0);
+
+  document.getElementById("pct").innerText = total;
+  document.querySelector(".donut-sub").innerText = "total";
+
+  // Build SVG arcs
+  const cx = 80, cy = 80, r = 60, strokeW = 22;
+  const circumference = 2 * Math.PI * r;
+  let offset = 0; // start at top (SVG rotated -90deg via transform)
+
+  const svgEl = document.getElementById("donut-svg");
+
+  // Base track
+  svgEl.innerHTML = `<circle cx="${cx}" cy="${cy}" r="${r}" stroke="#f0f0f0" stroke-width="${strokeW}" fill="none"/>`;
+
+  if(total === 0){
+    document.getElementById("legend").innerHTML = `<div style="color:#aaa;font-size:13px">No data</div>`;
+    return;
+  }
+
+  segments.forEach((seg, i) => {
+    const val = vals[i];
+    if(val === 0) return;
+
+    const pct = val / total;
+    const dash = pct * circumference;
+    const gap  = circumference - dash;
+
+    const circle = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    circle.setAttribute("cx", cx);
+    circle.setAttribute("cy", cy);
+    circle.setAttribute("r",  r);
+    circle.setAttribute("stroke", seg.color);
+    circle.setAttribute("stroke-width", strokeW);
+    circle.setAttribute("fill","none");
+    circle.setAttribute("stroke-dasharray", `${dash} ${gap}`);
+    circle.setAttribute("stroke-dashoffset", -offset);
+    circle.setAttribute("transform", `rotate(-90 ${cx} ${cy})`);
+    circle.style.transition = "stroke-dasharray 0.6s ease";
+    svgEl.appendChild(circle);
+
+    offset += dash;
+  });
+
+  // Legend — 2-column grid
+  document.getElementById("legend").innerHTML = segments.map((seg,i) => {
+    const val = vals[i];
+    if(val === 0) return "";
+    const pct = Math.round((val/total)*100);
+    return `
+    <div class="legend-item">
+      <div class="legend-left">
+        <span class="dot" style="background:${seg.color}"></span>
+        ${seg.label}
+      </div>
+      <span><span class="legend-val">${val}</span><span class="legend-pct">${pct}%</span></span>
+    </div>`;
+  }).join("");
+}
+
+load();
+</script>
+
+</body>
+</html>
