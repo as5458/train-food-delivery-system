@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Coach Position Tracker</title>
+
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/shell.js"></script>
+
+<style>
+.main-content { padding:20px; }
+.order-card {
+  border-radius:14px;
+  padding:16px;
+  background:#fff;
+  border:1px solid #eee;
+  box-shadow:0 4px 10px rgba(0,0,0,0.05);
+}
+
+.order-card.red {
+  border:2px solid #ef4444;
+}
+
+.badge {
+  background:#22c55e;
+  color:white;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  float:right;
+}
+
+.walk {
+  margin-top:10px;
+  background:#eef2ff;
+  padding:8px;
+  border-radius:10px;
+  font-size:12px;
+}
+.filters {
+  display:flex;
+  gap:20px;
+}
+
+.filters label {
+  font-size:12px;
+  color:#666;
+}
+
+.filters select {
+  padding:8px 12px;
+  border-radius:8px;
+  border:1px solid #ddd;
+  min-width:180px;
+}
+
+.card {
+  background:white;
+  border-radius:16px;
+  padding:20px;
+  margin-bottom:20px;
+}
+
+.stats {
+  display:flex;
+  gap:20px;
+  margin-bottom:20px;
+}
+
+.stat {
+  flex:1;
+  background:#f8fafc;
+  padding:20px;
+  border-radius:14px;
+}
+
+.stat small {
+  color:#777;
+}
+
+/* ===== DYNAMIC PLATFORM VIEW ===== */
+.platform-hint {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.platform-wrapper {
+  background: #f9fafb;
+  border-radius: 14px;
+  padding: 20px 24px;
+  position: relative;
+  overflow-x: auto;
+  /* Width now adapts to content */
+}
+
+.platform-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  /* Width matches platform content */
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Scale ticks - DYNAMIC based on coach count */
+.scale-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #999;
+  padding: 0 4px;
+  margin-bottom: 6px;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Coach row - DYNAMIC width */
+.platform {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding-bottom: 4px;
+  padding-top: 24px; /* room for pins */
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+}
+
+.coach {
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  border: 2px solid;
+  flex-shrink: 0;
+  position: relative;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.coach:hover { transform: translateY(-2px); }
+
+.engine   { background:#1f2937; color:white; border-color:#1f2937; }
+.sleeper  { background:#dbeafe; border-color:#3b82f6; color:#1e3a8a; }
+.ac       { background:#fef3c7; border-color:#f59e0b; color:#78350f; } /* 3AC */
+.ac2      { background:#fce7f3; border-color:#ec4899; color:#831843; } /* 2AC */
+.first    { background:#ede9fe; border-color:#8b5cf6; color:#4c1d95; } /* 1AC */
+.pantry   { background:#d1fae5; border-color:#10b981; color:#064e3b; }
+.general  { background:#f3f4f6; border-color:#9ca3af; color:#374151; }
+
+.highlight {
+  border: 2.5px solid #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.18);
+  background: #fff1f2 !important;
+}
+
+/* Pin marker on top of highlighted coaches */
+.coach .pin {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.coach .pin::after {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 8px;
+  background: #ef4444;
+}
+
+/* Track - DYNAMIC width */
+.track {
+  height: 36px;
+  margin-top: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    #cbd5e1 0px,
+    #cbd5e1 2px,
+    #f1f5f9 2px,
+    #f1f5f9 8px
+  );
+  border-top: 1px solid #94a3b8;
+  border-bottom: 1px solid #94a3b8;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Landmarks - DYNAMIC, positioned proportionally */
+.landmarks-bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #555;
+  width: max-content;
+  min-width: 100%;
+  position: relative;
+}
+.landmarks-bottom .lm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 80px; /* Prevent crushing */
+}
+.landmarks-bottom .lm::before {
+  content: "";
+  width: 1px;
+  height: 8px;
+  background: #94a3b8;
+  margin-bottom: 4px;
+}
+
+/* Legend */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #eee;
+  font-size: 12px;
+  color: #444;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend-swatch {
+  width: 18px;
+  height: 16px;
+  border-radius: 4px;
+  border: 2px solid;
+}
+
+/* ===== FIX SCROLL ISSUE ===== */
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow-y: auto;
+}
+
+body {
+  display: flex;
+}
+
+.sidebar {
+  width: 240px;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+}
+
+.main {
+  margin-left: 240px;
+  width: calc(100% - 240px);
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+.main-content {
+  padding: 20px;
+}
+
+/* ===== PENDING DELIVERIES - NO MESSING ===== */
+#pendingContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+/* Ensure cards don't stretch weirdly */
+.order-card {
+  min-width: 0; /* Prevent overflow in grid */
+}
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-slot"></div>
+<div class="main">
+<div id="topbar-slot"></div>
+
+<div class="main-content">
+
+<h2>🚂 Coach Position Tracker</h2>
+
+<!-- FILTER -->
+<div class="card">
+  <div class="filters">
+    <div>
+      <label>TRAIN</label><br>
+      <select id="trainSelect"></select>
+    </div>
+
+    <div>
+      <label>PLATFORM</label><br>
+      <select id="platformSelect">
+        <option>Platform 1</option>
+        <option selected>Platform 2</option>
+        <option>Platform 3</option>
+      </select>
+    </div>
+
+    <div>
+      <label>DIRECTION</label><br>
+      <select id="directionSelect">
+        <option>Mumbai → Howrah</option>
+        <option>Howrah → Mumbai</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat">
+    <small>ACTIVE DELIVERIES</small><br>
+    <h2 id="activeCount">0</h2>
+    <small>Pending on this platform</small>
+  </div>
+
+  <div class="stat">
+    <small>PLATFORM LENGTH</small><br>
+    <h2 id="platformLength">600m</h2>
+    <small>Standard PF length</small>
+  </div>
+
+  <div class="stat">
+    <small>TOTAL COACHES</small><br>
+    <h2 id="coachCount">0</h2>
+    <small>Including engine + SLR</small>
+  </div>
+
+  <div class="stat">
+    <small>AVG WALK TIME</small><br>
+    <h2 id="avgWalk">0m</h2>
+    <small>Counter to coach</small>
+  </div>
+</div>
+
+<!-- PLATFORM -->
+<div class="card">
+  <h3>📍 Live Platform View</h3>
+  <div class="platform-hint">
+    Click on any coach to see delivery details. Red-highlighted coaches have pending orders.
+  </div>
+
+  <div class="platform-wrapper">
+    <!-- ENDS labels -->
+    <div class="platform-ends">
+      <span>← ENGINE END (MUMBAI SIDE)</span>
+      <span>GUARD VAN END (HOWRAH SIDE) →</span>
+    </div>
+
+    <!-- Scale numbers above coaches - DYNAMIC -->
+    <div class="scale-top" id="scaleTop">
+      <!-- Generated by JS based on coach count -->
+    </div>
+
+    <!-- Coaches -->
+    <div class="platform" id="platform"></div>
+
+    <!-- Track (railway line) -->
+    <div class="track"></div>
+
+    <!-- Landmarks below track - DYNAMIC -->
+    <div class="landmarks-bottom" id="landmarksBottom">
+      <!-- Generated by JS based on platform length -->
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><span class="legend-swatch" style="background:#1f2937;border-color:#1f2937;"></span> Engine</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#dbeafe;border-color:#3b82f6;"></span> Sleeper</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#fef3c7;border-color:#f59e0b;"></span> 3AC</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#fce7f3;border-color:#ec4899;"></span> 2AC</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#ede9fe;border-color:#8b5cf6;"></span> 1AC</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#d1fae5;border-color:#10b981;"></span> Pantry</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#f3f4f6;border-color:#9ca3af;"></span> General</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#fff1f2;border-color:#ef4444;"></span> Pending Delivery</div>
+  </div>
+</div>
+
+<!-- PENDING DELIVERIES -->
+<div class="card">
+  <h3>📦 Pending Deliveries with Position Info</h3>
+
+  <div id="pendingContainer"></div>
+</div>
+</div>
+</div>
+
+<script>
+renderShell("coach");
+
+// ===== DYNAMIC SCALE GENERATION =====
+function generateScale(coachCount) {
+  const scaleTop = document.getElementById("scaleTop");
+  const landmarksBottom = document.getElementById("landmarksBottom");
+  
+  // Calculate platform length: ~20m per coach (standard Indian railway)
+  const coachWidth = 60; // px
+  const gap = 8; // px
+  const totalWidth = coachCount * (coachWidth + gap);
+  const platformLengthMeters = Math.max(600, Math.ceil(totalWidth / 4)); // ~4px per meter
+  
+  // Update platform length stat
+  document.getElementById("platformLength").innerText = platformLengthMeters + "m";
+  
+  // Generate scale markers every 100m
+  scaleTop.innerHTML = "";
+  const stepMeters = 100;
+  const numMarkers = Math.floor(platformLengthMeters / stepMeters) + 1;
+  
+  for (let i = 0; i < numMarkers; i++) {
+    const span = document.createElement("span");
+    span.innerText = (i * stepMeters) + "m";
+    // Position proportionally
+    span.style.position = "absolute";
+    span.style.left = (i / (numMarkers - 1) * 100) + "%";
+    span.style.transform = "translateX(-50%)";
+    scaleTop.appendChild(span);
+  }
+  
+  // Fixed landmark positions (standard station layout)
+  const landmarks = [
+    { name: "Entry Gate", pct: 5 },
+    { name: "Pillar 6", pct: 25 },
+    { name: "FOB Stairs", pct: 45 },
+    { name: "Food Counter", pct: 65 },
+    { name: "Water Booth", pct: 85 }
+  ];
+  
+  landmarksBottom.innerHTML = "";
+  landmarks.forEach(lm => {
+    const div = document.createElement("div");
+    div.className = "lm";
+    div.style.position = "absolute";
+    div.style.left = lm.pct + "%";
+    div.style.transform = "translateX(-50%)";
+    div.innerHTML = `<span></span>${lm.name}`;
+    landmarksBottom.appendChild(div);
+  });
+}
+
+async function loadTrains() {
+  const res = await fetch("/api/trains");
+  const data = await res.json();
+
+  const select = document.getElementById("trainSelect");
+  data.forEach(t => {
+    const opt = document.createElement("option");
+    opt.value = t.id;
+    opt.textContent = t.train_number + " - " + t.train_name;
+    select.appendChild(opt);
+  });
+
+  loadAll();
+}
+
+async function loadAll() {
+  const train = document.getElementById("trainSelect").value;
+
+  const coachRes = await fetch(`/api/coach/map/${train}`);
+  const coachData = await coachRes.json();
+
+  const activeRes = await fetch(`/api/coach/active/${train}`);
+  const activeData = await activeRes.json();
+  const activeSet = new Set(activeData.map(a => a.coach));
+
+  const statsRes = await fetch(`/api/coach/stats/${train}`);
+  const stats = await statsRes.json();
+
+  document.getElementById("activeCount").innerText = stats.active;
+  document.getElementById("avgWalk").innerText = stats.avg_walk + "m";
+  document.getElementById("coachCount").innerText = coachData.length;
+
+  // ===== GENERATE DYNAMIC SCALE =====
+  generateScale(coachData.length);
+
+  const platform = document.getElementById("platform");
+  platform.innerHTML = "";
+
+  coachData.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "coach";
+
+    const t = (c.coach_type || "").toLowerCase();
+    if (t === "engine") div.classList.add("engine");
+    else if (t === "sleeper") div.classList.add("sleeper");
+    else if (t === "ac" || t === "3ac") div.classList.add("ac");
+    else if (t === "2ac") div.classList.add("ac2");
+    else if (t === "first" || t === "1ac") div.classList.add("first");
+    else if (t === "pantry") div.classList.add("pantry");
+    else div.classList.add("general");
+
+    if (activeSet.has(c.coach_name)) {
+      div.classList.add("highlight");
+      const pin = document.createElement("div");
+      pin.className = "pin";
+      div.appendChild(pin);
+    }
+
+    const label = document.createElement("span");
+    label.innerText = c.coach_name;
+    div.appendChild(label);
+
+    platform.appendChild(div);
+  });
+
+  loadPending(train);
+}
+async function predictDeliveryTime(orderId) {
+    try {
+        const res = await fetch(`/api/ml/predict/order/${orderId}`);
+        const data = await res.json();
+        
+        if (data.error) return null;
+        
+        return {
+            minutes: data.predicted_minutes,
+            range: `${data.confidence_range.low}-${data.confidence_range.high} min`
+        };
+    } catch (e) {
+        console.error("Prediction failed:", e);
+        return null;
+    }
+}
+
+// Usage in your order cards:
+// const pred = await predictDeliveryTime(orderId);
+// if (pred) showBadge(`⏱ ${pred.minutes} min (${pred.range})`);
+async function loadPending(train) {
+  const res = await fetch(`/api/coach/pending/${train}`);
+  const data = await res.json();
+
+  const container = document.getElementById("pendingContainer");
+  container.innerHTML = "";
+
+  // ===== REMOVE DUPLICATES BY order_ref =====
+  const seen = new Set();
+  const uniqueData = data.filter(o => {
+    if (seen.has(o.order_ref)) return false;
+    seen.add(o.order_ref);
+    return true;
+  });
+
+  uniqueData.forEach(o => {
+    const div = document.createElement("div");
+    div.className = "order-card";
+
+    if (o.status === "pending") {
+      div.classList.add("red");
+    }
+
+    const walkTime = o.position_meter
+      ? Math.round(o.position_meter / 80) + " min walk"
+      : "N/A";
+
+    div.innerHTML = `
+      <b>#${o.order_ref}</b>
+      <span class="badge">${o.status.toUpperCase()}</span>
+
+      <p>🚆 ${o.train_number} (${o.train_name})</p>
+      <p>🪑 Coach ${o.coach} • Seat ${o.seat}</p>
+      <p>⏱ ${o.drop_time}</p>
+
+      <div class="walk">
+        📍 ${o.position_meter || 0}m near ${o.nearest_landmark || "N/A"}<<br>
+        🚶 ${walkTime}
+      </div>
+    `;
+
+    container.appendChild(div);
+  });
+}
+
+document.getElementById("trainSelect").addEventListener("change", loadAll);
+
+loadTrains();
+</script>
+
+</body>
+</html>
